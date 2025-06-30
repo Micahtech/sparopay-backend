@@ -1,4 +1,3 @@
-// src/auth/auth.service.ts
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -7,9 +6,12 @@ import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from './dto/login.dto';
 import { createHash } from 'crypto';
 
-function md5Hash(input: string): string {
-  return createHash('md5').update(input).digest('hex');
+function legacyHash(password: string): string {
+  const md5 = createHash('md5').update(password).digest('hex');
+  const sha1 = createHash('sha1').update(md5).digest('hex');
+  return sha1.slice(3, 13); // Mimics: substr(sha1(md5(password)), 3, 10)
 }
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -17,34 +19,34 @@ export class AuthService {
     private readonly subscriberRepo: Repository<Subscriber>,
     private readonly jwtService: JwtService
   ) {}
-async login(dto: LoginDto) {
-  const user = await this.subscriberRepo.findOne({
-    where: { phone: dto.sPhone },
-  });
 
-  if (!user) {
-    throw new UnauthorizedException('Invalid credentials');
+  async login(dto: LoginDto) {
+    const user = await this.subscriberRepo.findOne({
+      where: { phone: dto.sPhone },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const hashedInput = legacyHash(dto.sPass);
+
+    if (user.spass !== hashedInput) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const payload = {
+      sub: user.id, // user.sId if your DB column is named that way
+      phone: user.phone,
+      type: user.type,
+    };
+
+    const token = this.jwtService.sign(payload);
+
+    return {
+      message: 'Login successful',
+      token,
+      user,
+    };
   }
-
-  // Hash the input password using MD5 to compare with stored hash
-  const hashedInput = md5Hash(dto.sPass);
-
-  if (user.spass !== hashedInput) {
-    throw new UnauthorizedException('Invalid credentials');
-  }
-
-  const payload = {
-    sub: user.id,
-    phone: user.phone,
-    type: user.type,
-  };
-
-  const token = this.jwtService.sign(payload);
-
-  return {
-    message: 'Login successful',
-    token,
-    user,
-  };
-}
 }
