@@ -1,28 +1,49 @@
 // src/auth/auth.service.ts
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Subscriber } from '../subscribers/subscriber.entity';
 import { Repository } from 'typeorm';
+import { Subscriber } from './subscriber.entity';
 import { JwtService } from '@nestjs/jwt';
+import { LoginDto } from './dto/login.dto';
+import * as bcrypt from 'bcrypt'; // if passwords are hashed
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(Subscriber)
     private readonly subscriberRepo: Repository<Subscriber>,
-    private jwtService: JwtService,
+    private readonly jwtService: JwtService
   ) {}
 
-  async login(phone: string, password: string) {
-    const user = await this.subscriberRepo.findOneBy({ phone });
+  async login(dto: LoginDto) {
+    const user = await this.subscriberRepo.findOne({
+      where: { sPhone: dto.sPhone },
+    });
 
-    if (!user || user.password !== password) {
-      throw new UnauthorizedException('Invalid credentials');
+    if (!user) {
+      throw new UnauthorizedException('Invalid phone number');
     }
 
-    const payload = { id: user.id, role: user.role, phone: user.phone };
+    // If password is plain text
+    if (user.sPass !== dto.sPass) {
+      throw new UnauthorizedException('Invalid password');
+    }
+
+    // If password is hashed, use:
+    // if (!await bcrypt.compare(dto.sPass, user.sPass)) { throw new UnauthorizedException('Invalid password'); }
+
+    const payload = {
+      sub: user.sId,
+      sPhone: user.sPhone,
+      sType: user.sType,
+    };
+
     const token = this.jwtService.sign(payload);
 
-    return { token, user };
+    return {
+      message: 'Login successful',
+      token,
+      user,
+    };
   }
 }
