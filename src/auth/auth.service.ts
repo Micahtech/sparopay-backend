@@ -16,34 +16,26 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginDto) {
-    const user = await this.subscriberRepo.findOne({
-      where: { sPhone: dto.sPhone },
-    });
+  const user = await this.subscriberRepo.findOne({
+    where: { phone: dto.sPhone }, // fixed variable name
+  });
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid phone number');
-    }
-
-    // If password is plain text
-    if (user.sPass !== dto.sPass) {
-      throw new UnauthorizedException('Invalid password');
-    }
-
-    // If password is hashed, use:
-    // if (!await bcrypt.compare(dto.sPass, user.sPass)) { throw new UnauthorizedException('Invalid password'); }
-
-    const payload = {
-      sub: user.sId,
-      sPhone: user.sPhone,
-      sType: user.sType,
-    };
-
-    const token = this.jwtService.sign(payload);
-
-    return {
-      message: 'Login successful',
-      token,
-      user,
-    };
+  if (!user || user.spass !== dto.sPass) { // fixed password field
+    throw new UnauthorizedException('Invalid credentials');
   }
+
+  const payload = {
+    sub: user.id,          // alias for sId (make sure this is mapped correctly)
+    phone: user.phone,
+    type: user.type
+  };
+
+  const token = this.jwtService.sign(payload);
+
+  return {
+    message: 'Login successful',
+    token,
+    user,
+  };
+}
 }
