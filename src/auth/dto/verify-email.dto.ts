@@ -1,6 +1,5 @@
-import { IsString, Length } from 'class-validator';
-
+import { IsEmail, IsInt, Min, Max } from 'class-validator';
 export class VerifyEmailDto {
-  @IsString() phone: string;
-  @Length(4, 4) code: string;
+  @IsEmail() email: string;
+  @IsInt() @Min(1000) @Max(9999) code: number;
 }
