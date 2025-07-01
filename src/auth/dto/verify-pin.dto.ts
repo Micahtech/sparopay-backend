@@ -2,7 +2,6 @@
 import { IsNotEmpty, IsNumberString } from 'class-validator';
 
 export class VerifyPinDto {
-  @IsNotEmpty()
-  @IsNumberString()
-  pin: string;
+  pin: number;
 }
+

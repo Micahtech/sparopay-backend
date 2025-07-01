@@ -50,17 +50,20 @@ export class AuthService {
     };
   }
 
-  async verifyPin(pin: string, userId: number) {
-    const user = await this.subscriberRepo.findOne({ where: { id: userId } });
+  async verifyPin(pin: number, userId: number) {
+  const user = await this.subscriberRepo.findOne({ where: { id: userId } });
 
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
-
-    if (user.pin !== parseInt(pin)) {
-      throw new UnauthorizedException('Invalid PIN');
-    }
-
-    return { message: '✅ PIN verified' };
+  if (!user || user.pin !== pin) {
+    throw new UnauthorizedException('Invalid PIN');
   }
+
+  return {
+    message: 'PIN verified successfully',
+    user: {
+      id: user.id,
+      phone: user.phone,
+      type: user.type,
+    },
+  };
+}
 }

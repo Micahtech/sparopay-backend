@@ -1,8 +1,9 @@
-import { Controller, Post, Body, Request, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { AuthGuard } from '@nestjs/passport';
 import { VerifyPinDto } from './dto/verify-pin.dto';
+import { AuthGuard } from '@nestjs/passport';
+import { Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -12,10 +13,10 @@ export class AuthController {
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
-
-  @UseGuards(AuthGuard('jwt'))
-  @Post('verify-pin')
-  verifyPin(@Body() dto: VerifyPinDto, @Request() req) {
-    return this.authService.verifyPin(dto.pin, req.user.sub);
-  }
+@Post('verify-pin')
+@UseGuards(AuthGuard('jwt'))
+verifyPin(@Body() dto: VerifyPinDto, @Req() req: Request & { user: any }) {
+  const userId = req.user.userId;
+  return this.authService.verifyPin(dto.pin, userId);
+}
 }
