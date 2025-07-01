@@ -1,7 +1,7 @@
 // src/auth/dto/verify-pin.dto.ts
-import { IsNotEmpty, IsNumberString } from 'class-validator';
+import { IsInt } from 'class-validator';
 
 export class VerifyPinDto {
+  @IsInt()
   pin: number;
 }
-

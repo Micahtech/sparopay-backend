@@ -28,7 +28,9 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-
+if (!dto.sPass) {
+  throw new UnauthorizedException('Password is required');
+}
     const hashedInput = legacyHash(dto.sPass);
 
     if (user.spass !== hashedInput) {
