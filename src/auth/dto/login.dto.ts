@@ -1,10 +1,6 @@
-// src/auth/dto/login.dto.ts
-import { IsNotEmpty } from 'class-validator';
+import { Matches, Length } from 'class-validator';
 
 export class LoginDto {
-  @IsNotEmpty()
-  sPhone: string;
-
-  @IsNotEmpty()
-  sPass: string;
+  @Matches(/^\d{10,15}$/) sPhone: string;
+  @Length(6, 100) sPass: string;
 }
