@@ -36,7 +36,7 @@ export class AuthService {
     }
 
     const payload = {
-      sub: user.id, // user.sId if your DB column is named that way
+      sub: user.id, // ensure subscriber.entity.ts has this mapped
       phone: user.phone,
       type: user.type,
     };
@@ -48,5 +48,19 @@ export class AuthService {
       token,
       user,
     };
+  }
+
+  async verifyPin(pin: string, userId: number) {
+    const user = await this.subscriberRepo.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (user.pin !== parseInt(pin)) {
+      throw new UnauthorizedException('Invalid PIN');
+    }
+
+    return { message: '✅ PIN verified' };
   }
 }
