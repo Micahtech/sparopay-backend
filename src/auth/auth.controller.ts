@@ -31,11 +31,12 @@ export class AuthController {
   }
 
   @Post('create-pin')
-  @UseGuards(AuthGuard('jwt'))
-  createPin(@Body() dto: CreatePinDto, @Req() req: Request & { user: any }) {
-    const userId = req.user.sub;
-    return this.authService.createPin(userId, dto);
-  }
+@UseGuards(AuthGuard('jwt'))
+createPin(@Body() dto: CreatePinDto, @Req() req: Request & { user: any }) {
+  const userId = req.user.sub;
+  return this.authService.createPin(userId, dto);
+}
+
 
   @Post('login')
   login(@Body() dto: LoginDto) {

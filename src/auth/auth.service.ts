@@ -104,25 +104,30 @@ const sub = this.subRepo.create({
 
     return { message: 'PIN created successfully' };
   }
-
   async login(dto: LoginDto) {
-    const user = await this.subRepo.findOne({ where: { phone: dto.sPhone } });
-    if (!user || user.regStatus !== 1) {
-      throw new UnauthorizedException('Invalid credentials or email not verified');
-    }
+  const user = await this.subRepo.findOne({ where: { phone: dto.sPhone } });
 
-    if (!user.newPin || user.newPin.length !== 4) {
-      throw new UnauthorizedException('Please set a 4-digit login PIN before logging in');
-    }
-
-    const hash = legacyHash(dto.sPass);
-    if (user.spass !== hash) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const payload = { sub: user.id, phone: user.phone, type: user.type };
-    return { message: 'Login successful', token: this.jwtService.sign(payload), user };
+  if (!user || user.regStatus !== 1) {
+    throw new UnauthorizedException('Invalid credentials or email not verified');
   }
+
+  const hash = legacyHash(dto.sPass);
+  if (user.spass !== hash) {
+    throw new UnauthorizedException('Invalid credentials');
+  }
+
+  const payload = { sub: user.id, phone: user.phone, type: user.type };
+  const token = this.jwtService.sign(payload);
+
+  const pinMissing = !user.newPin || user.newPin.length !== 4;
+
+  return {
+    message: pinMissing ? 'Login successful, but pin is required' : 'Login successful',
+    pinRequired: pinMissing,
+    token,
+    user,
+  };
+}
 
   async verifyPin(dto: VerifyPinDto, userId: number) {
     const user = await this.subRepo.findOne({ where: { id: userId } });
