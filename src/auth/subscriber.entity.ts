@@ -28,6 +28,9 @@ export class Subscriber {
 
   @Column({ name: 'spin', type: 'int' })
   pin: number;
+@Column({ name: 'snewpin', type: 'varchar', nullable: true })
+newPin: string;
+
 
   @Column({ name: 'spinstatus', type: 'smallint' })
   pinStatus: number;
