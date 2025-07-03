@@ -12,12 +12,16 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { VerifyPinDto } from './dto/verify-pin.dto';
 import { CreatePinDto } from './dto/create-pin.dto';
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 
 function legacyHash(password: string): string {
   const md5 = createHash('md5').update(password).digest('hex');
   const sha1 = createHash('sha1').update(md5).digest('hex');
   return sha1.slice(3, 13);
+}
+
+function generateApiKey(): string {
+  return randomBytes(16).toString('hex');
 }
 
 @Injectable()
@@ -37,17 +41,24 @@ export class AuthService {
 
     const hash = legacyHash(dto.password);
     const code = Math.floor(1000 + Math.random() * 9000);
-const sub = this.subRepo.create({
-  fname: dto.fname, lname: dto.lname,
-  email: dto.email, phone: dto.phone,
-  spass: hash, state: dto.state,
-  pin: +dto.transpin, pinStatus: 0,
-  type: 0, wallet: 0, refWallet: 0,
-  verCode: code, regStatus: 0,
-  emailSent: false,
-  newPin: '', // ✅ fix: use empty string instead of null
-});
-
+    const sub = this.subRepo.create({
+      apiKey: generateApiKey(),
+      fname: dto.fname,
+      lname: dto.lname,
+      email: dto.email,
+      phone: dto.phone,
+      spass: hash,
+      state: dto.state,
+      pin: 0,
+      pinStatus: 0,
+      type: 0,
+      wallet: 0,
+      refWallet: 0,
+      verCode: code,
+      regStatus: 0,
+      emailSent: false,
+      newPin: '',
+    });
 
     await this.subRepo.save(sub);
 
@@ -66,7 +77,7 @@ const sub = this.subRepo.create({
     if (user.regStatus === 1) return { message: 'Already verified' };
     if (user.verCode !== dto.code) throw new UnauthorizedException('Invalid code');
 
-    user.regStatus = 1;
+    user.regStatus = 2;
     await this.subRepo.save(user);
     return { message: 'Email verified successfully' };
   }
@@ -74,7 +85,7 @@ const sub = this.subRepo.create({
   async resendVerificationCode(dto: ResendVerificationDto) {
     const user = await this.subRepo.findOne({ where: { email: dto.email } });
     if (!user) throw new BadRequestException('Email not found');
-    if (user.regStatus === 1) return { message: 'Already verified' };
+    if (user.regStatus >= 2) return { message: 'Already verified' };
 
     const code = Math.floor(1000 + Math.random() * 9000);
     user.verCode = code;
@@ -90,44 +101,44 @@ const sub = this.subRepo.create({
   }
 
   async createPin(userId: number, dto: CreatePinDto) {
+    const user = await this.subRepo.findOne({ where: { id: userId } });
+    if (!user || user.regStatus < 2) {
+      throw new UnauthorizedException('Verify email before setting PIN');
+    }
     if (dto.pin === '1234') {
       throw new BadRequestException('PIN is too weak');
     }
 
-    const user = await this.subRepo.findOne({ where: { id: userId } });
-    if (!user || user.regStatus !== 1) {
-      throw new UnauthorizedException('User must verify email before setting PIN');
-    }
-
     user.newPin = dto.pin;
+    user.regStatus = 1; // fully activated
     await this.subRepo.save(user);
 
     return { message: 'PIN created successfully' };
   }
+
   async login(dto: LoginDto) {
-  const user = await this.subRepo.findOne({ where: { phone: dto.sPhone } });
+    const user = await this.subRepo.findOne({ where: { phone: dto.sPhone } });
+    if (!user) throw new UnauthorizedException('Invalid credentials');
 
-  if (!user || user.regStatus !== 1) {
-    throw new UnauthorizedException('Invalid credentials or email not verified');
+    const hash = legacyHash(dto.sPass);
+    if (user.spass !== hash) throw new UnauthorizedException('Invalid credentials');
+
+    if (user.regStatus === 0) {
+      throw new UnauthorizedException('Please verify your email');
+    }
+
+    const payload = { sub: user.id, phone: user.phone, type: user.type };
+    const token = this.jwtService.sign(payload);
+
+    const pinMissing = !user.newPin || user.newPin.length !== 4;
+
+    return {
+      message: pinMissing ? 'Login successful, but pin is required' : 'Login successful',
+      pinRequired: pinMissing,
+      token,
+      user,
+    };
   }
-
-  const hash = legacyHash(dto.sPass);
-  if (user.spass !== hash) {
-    throw new UnauthorizedException('Invalid credentials');
-  }
-
-  const payload = { sub: user.id, phone: user.phone, type: user.type };
-  const token = this.jwtService.sign(payload);
-
-  const pinMissing = !user.newPin || user.newPin.length !== 4;
-
-  return {
-    message: pinMissing ? 'Login successful, but pin is required' : 'Login successful',
-    pinRequired: pinMissing,
-    token,
-    user,
-  };
-}
 
   async verifyPin(dto: VerifyPinDto, userId: number) {
     const user = await this.subRepo.findOne({ where: { id: userId } });

@@ -7,5 +7,4 @@ export class RegisterDto {
   @Matches(/^\d{10,15}$/) phone: string;
   @IsString() state: string;
   @Length(6, 100) password: string;
-  @Matches(/^\d{4}$/) transpin: string;
 }

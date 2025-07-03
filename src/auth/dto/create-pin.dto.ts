@@ -1,6 +1,8 @@
-import { Matches } from 'class-validator';
+import { IsString, Length, Matches } from 'class-validator';
 
 export class CreatePinDto {
-  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
+  @IsString()
+  @Matches(/^\d{4}$/)
+  @Length(4, 4)
   pin: string;
 }
