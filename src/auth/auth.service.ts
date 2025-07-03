@@ -101,20 +101,23 @@ export class AuthService {
   }
 
   async createPin(userId: number, dto: CreatePinDto) {
-    const user = await this.subRepo.findOne({ where: { id: userId } });
-    if (!user || user.regStatus < 2) {
-      throw new UnauthorizedException('Verify email before setting PIN');
-    }
-    if (dto.pin === '1234') {
-      throw new BadRequestException('PIN is too weak');
-    }
-
-    user.newPin = dto.pin;
-    user.regStatus = 1; // fully activated
-    await this.subRepo.save(user);
-
-    return { message: 'PIN created successfully' };
+  const user = await this.subRepo.findOne({ where: { id: userId } });
+  if (!user || user.regStatus < 2) {
+    throw new UnauthorizedException('Verify email before setting PIN');
   }
+  if (dto.pin === '1234') {
+    throw new BadRequestException('PIN is too weak');
+  }
+
+  user.newPin = dto.pin;
+  user.regStatus = 1;
+
+  console.log('Saving PIN for user:', user.id, 'PIN:', dto.pin); // ✅ This helps you verify it's correct
+  await this.subRepo.save(user);
+
+  return { message: 'PIN created successfully' };
+}
+
 
   async login(dto: LoginDto) {
     const user = await this.subRepo.findOne({ where: { phone: dto.sPhone } });
