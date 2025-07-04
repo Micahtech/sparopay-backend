@@ -69,7 +69,7 @@ newPin: string;
   regStatus: number;
 
   @Column({ name: 'svercode', type: 'smallint', nullable: true })
-verCode: number;
+verCode: number | null;
 
   @Column({ name: 'sregdate', type: 'timestamp' })
   regDate: Date;
@@ -77,6 +77,7 @@ verCode: number;
   @Column({ name: 'slastactivity', type: 'timestamp', nullable: true })
   lastActivity: Date;
 
+   @Column({ name: 'svercode_type', type: 'varchar', length: 30, nullable: true }) verCodeType: string; // NEW
   @Column({ name: 'sreferal' })
   referal: string;
 

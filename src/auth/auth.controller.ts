@@ -1,80 +1,80 @@
-import {
-  Controller, Post, Body, UseGuards, Req,
-} from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import { VerifyEmailDto } from './dto/verify-email.dto';
-import { ResendVerificationDto } from './dto/resend-verification.dto';
-import { VerifyPinDto } from './dto/verify-pin.dto';
-import { CreatePinDto } from './dto/create-pin.dto';
-import { ForgotPasswordDto} from './dto/forgot-password.dto';
-import { ResetPasswordDto} from './dto/reset-password.dto';
-import { ForgotPinDto} from './dto/forgot-pin.dto';
-import {ResetPinDto } from './dto/reset-pin.dto';
-import { ResetPasswordAuthDto } from './dto/reset-password-auth.dto';
-import { AuthGuard } from '@nestjs/passport';
+import {
+  RegisterDto,
+  LoginDto,
+  VerifyEmailDto,
+  ResendVerificationDto,
+  VerifyPinDto,
+  CreatePinWithAuthDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  ForgotPinDto,
+  ResetPinDto,
+  ResetPasswordAuthDto,
+} from './dto';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly auth: AuthService) {}
 
   @Post('register')
   register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+    return this.auth.register(dto);
   }
 
   @Post('verify-email')
   verifyEmail(@Body() dto: VerifyEmailDto) {
-    return this.authService.verifyEmail(dto);
+    return this.auth.verifyEmail(dto);
   }
 
   @Post('resend-verification-code')
-  resendVerification(@Body() dto: ResendVerificationDto) {
-    return this.authService.resendVerificationCode(dto);
+  resendCode(@Body() dto: ResendVerificationDto) {
+    return this.auth.resendVerificationCode(dto);
   }
 
   @Post('create-pin')
-  createPin(@Body() dto: CreatePinDto & { phone: string; password: string }) {
-    return this.authService.createPin(dto);
+  createPin(@Body() dto: CreatePinWithAuthDto) {
+    return this.auth.createPin(dto);
   }
 
   @Post('login')
   login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+    return this.auth.login(dto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('verify-pin')
   verifyPin(@Body() dto: VerifyPinDto, @Req() req: any) {
-    const userId = req.user?.sub;
-    return this.authService.verifyPin(dto, userId);
+    return this.auth.verifyPin(dto, req.user.sub);
   }
+
   @Post('forgot-password')
-forgotPassword(@Body() dto: ForgotPasswordDto) {
-  return this.authService.forgotPassword(dto.email);
-}
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.auth.forgotPassword(dto);
+  }
 
-@Post('reset-password')
-resetPassword(@Body() dto: ResetPasswordDto) {
-  return this.authService.resetPassword(dto);
-}
+  @Post('reset-password')
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.auth.resetPassword(dto);
+  }
 
-@Post('forgot-pin')
-@UseGuards(AuthGuard('jwt'))
-forgotPin(@Body() dto: ForgotPinDto, @Req() req: Request & { user: any }) {
-  return this.authService.forgotPin(req.user.sub, dto);
-}
+  @UseGuards(JwtAuthGuard)
+  @Post('forgot-pin')
+  forgotPin(@Body() dto: ForgotPinDto, @Req() req: any) {
+    return this.auth.forgotPin(req.user.sub, dto);
+  }
 
-@Post('reset-pin')
-@UseGuards(AuthGuard('jwt'))
-resetPin(@Body() dto: ResetPinDto, @Req() req: Request & { user: any }) {
-  return this.authService.resetPin(req.user.sub, dto);
-}
+  @UseGuards(JwtAuthGuard)
+  @Post('reset-pin')
+  resetPin(@Body() dto: ResetPinDto, @Req() req: any) {
+    return this.auth.resetPin(req.user.sub, dto);
+  }
 
-@Post('reset-password-auth')
-@UseGuards(AuthGuard('jwt'))
-resetPasswordAuth(@Body() dto: ResetPasswordAuthDto, @Req() req: Request & { user: any }) {
-  return this.authService.resetPasswordAuth(req.user.sub, dto);
-}
-
+  @UseGuards(JwtAuthGuard)
+  @Post('reset-password-auth')
+  resetPasswordAuth(@Body() dto: ResetPasswordAuthDto, @Req() req: any) {
+    return this.auth.resetPasswordAuth(req.user.sub, dto);
+  }
 }
