@@ -8,8 +8,6 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { VerifyPinDto } from './dto/verify-pin.dto';
 import { CreatePinDto } from './dto/create-pin.dto';
-import { AuthGuard } from '@nestjs/passport';
-import { Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -29,12 +27,11 @@ export class AuthController {
   resendVerification(@Body() dto: ResendVerificationDto) {
     return this.authService.resendVerificationCode(dto);
   }
-@Post('create-pin')
-createPin(@Body() dto: CreatePinDto & { phone: string; password: string }) {
-  return this.authService.createPin(dto);
-}
 
-
+  @Post('create-pin')
+  createPin(@Body() dto: CreatePinDto & { phone: string; password: string }) {
+    return this.authService.createPin(dto);
+  }
 
   @Post('login')
   login(@Body() dto: LoginDto) {
@@ -42,9 +39,8 @@ createPin(@Body() dto: CreatePinDto & { phone: string; password: string }) {
   }
 
   @Post('verify-pin')
-  @UseGuards(AuthGuard('jwt'))
-  verifyPin(@Body() dto: VerifyPinDto, @Req() req: Request & { user: any }) {
-    const userId = req.user.sub;
+  verifyPin(@Body() dto: VerifyPinDto, @Req() req: any) {
+    const userId = req.user?.sub;
     return this.authService.verifyPin(dto, userId);
   }
 }
