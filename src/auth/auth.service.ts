@@ -13,7 +13,10 @@ import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { VerifyPinDto } from './dto/verify-pin.dto';
 import { CreatePinDto } from './dto/create-pin.dto';
 import { createHash, randomBytes } from 'crypto';
-
+import { ResetPasswordDto} from './dto/reset-password.dto';
+import { ForgotPinDto} from './dto/forgot-pin.dto';
+import {ResetPinDto } from './dto/reset-pin.dto';
+import { ResetPasswordAuthDto } from './dto/reset-password-auth.dto';
 function legacyHash(password: string): string {
   const md5 = createHash('md5').update(password).digest('hex');
   const sha1 = createHash('sha1').update(md5).digest('hex');
@@ -148,4 +151,72 @@ export class AuthService {
     if (!user || user.pin !== dto.pin) throw new UnauthorizedException('Invalid PIN');
     return { message: 'PIN verified' };
   }
+
+  // Forgot Password
+async forgotPassword(email: string) {
+  const user = await this.subRepo.findOne({ where: { email } });
+  if (!user) throw new BadRequestException('Email not found');
+
+  user.verCode = Math.floor(1000 + Math.random() * 9000);
+  await this.subRepo.save(user);
+
+  await this.mailer.sendMail({
+    to: email,
+    subject: 'Password Reset Code',
+    text: `Your reset code is ${user.verCode}`,
+  });
+
+  return { message: 'Reset code sent to email' };
 }
+
+async resetPassword(dto: ResetPasswordDto) {
+  const user = await this.subRepo.findOne({ where: { email: dto.email } });
+  if (!user) throw new BadRequestException('Email not found');
+  if (user.verCode !== dto.code) throw new UnauthorizedException('Invalid code');
+
+  user.spass = legacyHash(dto.newPassword);
+  await this.subRepo.save(user);
+
+  return { message: 'Password reset successful' };
+}
+
+// Forgot PIN (Logged In)
+async forgotPin(userId: number, dto: ForgotPinDto) {
+  const user = await this.subRepo.findOne({ where: { id: userId } });
+  if (!user) throw new BadRequestException('User not found');
+  if (user.verCode !== dto.code) throw new UnauthorizedException('Invalid verification code');
+  if (legacyHash(dto.password) !== user.spass) throw new UnauthorizedException('Wrong password');
+
+  user.newPin = dto.newPin;
+  await this.subRepo.save(user);
+
+  return { message: 'PIN updated successfully' };
+}
+
+// Reset PIN (Logged In)
+async resetPin(userId: number, dto: ResetPinDto) {
+  const user = await this.subRepo.findOne({ where: { id: userId } });
+  if (!user) throw new BadRequestException('User not found');
+  if (user.newPin !== dto.oldPin) throw new UnauthorizedException('Wrong old PIN');
+
+  user.newPin = dto.newPin;
+  await this.subRepo.save(user);
+
+  return { message: 'PIN reset successful' };
+}
+
+// Reset Password (Logged In)
+async resetPasswordAuth(userId: number, dto: ResetPasswordAuthDto) {
+  const user = await this.subRepo.findOne({ where: { id: userId } });
+  if (!user) throw new BadRequestException('User not found');
+  if (legacyHash(dto.oldPassword) !== user.spass) throw new UnauthorizedException('Incorrect old password');
+
+  user.spass = legacyHash(dto.newPassword);
+  await this.subRepo.save(user);
+
+  return { message: 'Password updated successfully' };
+}
+
+}
+
+

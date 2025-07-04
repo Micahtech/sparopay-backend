@@ -68,8 +68,8 @@ newPin: string;
   @Column({ name: 'sregstatus', type: 'smallint' })
   regStatus: number;
 
-  @Column({ name: 'svercode', type: 'smallint' })
-  verCode: number;
+  @Column({ name: 'svercode', type: 'smallint', nullable: true })
+verCode: number;
 
   @Column({ name: 'sregdate', type: 'timestamp' })
   regDate: Date;
