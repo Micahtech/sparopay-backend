@@ -29,13 +29,11 @@ export class AuthController {
   resendVerification(@Body() dto: ResendVerificationDto) {
     return this.authService.resendVerificationCode(dto);
   }
-
-  @Post('create-pin')
-@UseGuards(AuthGuard('jwt'))
-createPin(@Body() dto: CreatePinDto, @Req() req: Request & { user: any }) {
-  const userId = req.user.sub;
-  return this.authService.createPin(userId, dto);
+@Post('create-pin')
+createPin(@Body() dto: CreatePinDto & { phone: string; password: string }) {
+  return this.authService.createPin(dto);
 }
+
 
 
   @Post('login')
