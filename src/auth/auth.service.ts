@@ -108,20 +108,16 @@ export class AuthService {
 
     return { message: 'Verification code resent.' };
   }
+async createPin(dto: CreatePinWithAuthDto) {
+    const u = await this.subRepo.findOne({ where: { phone: dto.phone } });
+    if (!u) throw new BadRequestException('User not found');
+    if (legacyHash(dto.password) !== u.spass) throw new UnauthorizedException('Wrong password');
+    if (u.regStatus < 2) throw new UnauthorizedException('Email not verified');
+    if (!/^\d{4}$/.test(dto.pin)) throw new BadRequestException('PIN must be 4 digits');
 
-  async createPin(dto: CreatePinWithAuthDto) {
-    const user = await this.subRepo.findOne({ where: { phone: dto.phone } });
-    if (!user) throw new BadRequestException('User not found');
-    if (legacyHash(dto.password) !== user.spass)
-      throw new UnauthorizedException('Invalid password');
-    if (user.regStatus < 2)
-      throw new UnauthorizedException('Email not verified');
-    if (!/^\d{4}$/.test(dto.pin))
-      throw new BadRequestException('PIN must be 4 digits');
-
-    user.pin = parseInt(dto.pin, 10);
-    user.pinStatus = 1;
-    await this.subRepo.save(user);
+    u.pin = parseInt(dto.pin, 10);
+    u.pinStatus = 1;
+    await this.subRepo.save(u);
     return { message: 'PIN created successfully.' };
   }
 
