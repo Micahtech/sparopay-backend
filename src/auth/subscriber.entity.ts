@@ -77,7 +77,7 @@ verCode: number | null;
   @Column({ name: 'slastactivity', type: 'timestamp', nullable: true })
   lastActivity: Date;
 
-   @Column({ name: 'svercode_type', type: 'varchar', length: 30, nullable: true }) verCodeType: string; // NEW
+   @Column({ name: 'svercode_type', type: 'varchar', length: 30, nullable: true }) verCodeType: string | null; // NEW
   @Column({ name: 'sreferal' })
   referal: string;
 

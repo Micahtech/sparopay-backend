@@ -1,7 +1,5 @@
 import {
-  Injectable,
-  BadRequestException,
-  UnauthorizedException,
+  Injectable, BadRequestException, UnauthorizedException, Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -9,28 +7,21 @@ import { Subscriber } from './subscriber.entity';
 import { JwtService } from '@nestjs/jwt';
 import { MailerService } from '@nestjs-modules/mailer';
 import {
-  RegisterDto,
-  LoginDto,
-  VerifyEmailDto,
-  ResendVerificationDto,
-  VerifyPinDto,
-  CreatePinWithAuthDto,
-  ForgotPasswordDto,
-  ResetPasswordDto,
-  ForgotPinDto,
-  ResetPinDto,
-  ResetPasswordAuthDto,
+  RegisterDto, LoginDto, VerifyEmailDto, ResendVerificationDto,
+  VerifyPinDto, CreatePinWithAuthDto, ForgotPasswordDto, ResetPasswordDto,
+  ForgotPinDto, ResetPinDto, ResetPasswordAuthDto,
 } from './dto';
 import { createHash, randomBytes } from 'crypto';
+import Redis from 'ioredis';
+
+if (!process.env.REDIS_URL) throw new Error('REDIS_URL is not defined in env');
+const redis = new Redis(process.env.REDIS_URL);
+const logger = new Logger('AuthService');
 
 function legacyHash(password: string): string {
   const md5 = createHash('md5').update(password).digest('hex');
   const sha1 = createHash('sha1').update(md5).digest('hex');
   return sha1.slice(3, 13);
-}
-
-function generateApiKey(): string {
-  return randomBytes(16).toString('hex');
 }
 
 @Injectable()
@@ -42,181 +33,169 @@ export class AuthService {
     private readonly mailer: MailerService,
   ) {}
 
-  // Register + send email verification code
+  private async blacklistPreviousToken(userId: number, oldToken?: string) {
+    const key = `userToken:${userId}`;
+    const current = await redis.get(key);
+    if (current) {
+      await redis.set(`blacklist:${current}`, 'blacklisted', 'EX', 60 * 60 * 24);
+    }
+    // new token will overwrite
+  }
+
+  private clean(user: Subscriber) {
+    const { spass, verCode, verCodeType, pin, ...rest } = user;
+    return rest;
+  }
+
   async register(dto: RegisterDto) {
     const exists = await this.subRepo.findOne({
       where: [{ email: dto.email }, { phone: dto.phone }],
     });
     if (exists) throw new BadRequestException('Email or phone already exists');
 
-    const hash = legacyHash(dto.password);
-    const code = Math.floor(1000 + Math.random() * 9000);
-
-    const sub = this.subRepo.create({
-      apiKey: generateApiKey(),
-      fname: dto.fname,
-      lname: dto.lname,
-      email: dto.email,
-      phone: dto.phone,
-      spass: hash,
-      state: dto.state,
-      pin: 0,
-      pinStatus: 0,
-      type: 0,
-      wallet: 0,
-      refWallet: 0,
-      verCode: code,
-      regStatus: 0,  // unverified
-      emailSent: false,
-      newPin: '',
+    const user = this.subRepo.create({
+      ...dto,
+      spass: legacyHash(dto.password),
+      verCode: Math.floor(1000 + Math.random() * 9000),
+      verCodeType: 'email_verification', // track purpose
+      regStatus: 0,
     });
 
-    await this.subRepo.save(sub);
+    await this.subRepo.save(user);
     await this.mailer.sendMail({
       to: dto.email,
       subject: 'Verify your email',
-      text: `Your verification code is ${code}`,
+      text: `Your verification code is ${user.verCode}`,
     });
-    return { message: 'Registered. Check email for verification code.' };
+
+    return { message: 'Registered successfully. Verify your email.' };
   }
 
-  // Verify email
   async verifyEmail(dto: VerifyEmailDto) {
-    const user = await this.subRepo.findOne({ where: { email: dto.email } });
-    if (!user) throw new BadRequestException('Email not found');
-    if (user.regStatus >= 1) return { message: 'Already verified or active.' };
-    if (user.verCode !== dto.code) throw new UnauthorizedException('Invalid code');
+    const u = await this.subRepo.findOne({ where: { email: dto.email } });
+    if (!u) throw new BadRequestException('Email not found');
+    if (u.regStatus >= 1) return { message: 'Already verified.' };
+    if (u.verCode !== dto.code || u.verCodeType !== 'email_verification') {
+      throw new UnauthorizedException('Invalid code');
+    }
 
-    user.regStatus = 2;
-    await this.subRepo.save(user);
-    return { message: 'Email verified successfully.' };
+    u.regStatus = 2;
+    u.verCode = null;
+    u.verCodeType = null;
+    await this.subRepo.save(u);
+    return { message: 'Email verified success.' };
   }
 
-  // Resend verification code (only if not verified)
   async resendVerificationCode(dto: ResendVerificationDto) {
-    const user = await this.subRepo.findOne({ where: { email: dto.email } });
-    if (!user) throw new BadRequestException('Email not found');
-    if (user.regStatus >= 1)
-      return { message: 'Already verified or active.' };
+    const u = await this.subRepo.findOne({ where: { email: dto.email } });
+    if (!u) throw new BadRequestException('Email not found');
+    if (u.regStatus >= 1) return { message: 'Already verified.' };
 
-    const code = Math.floor(1000 + Math.random() * 9000);
-    user.verCode = code;
-    await this.subRepo.save(user);
+    u.verCode = Math.floor(1000 + Math.random() * 9000);
+    u.verCodeType = 'email_verification';
+    await this.subRepo.save(u);
     await this.mailer.sendMail({
       to: dto.email,
-      subject: 'Resend Verification Code',
-      text: `Your new code is ${code}`,
+      subject: 'Your new verification code',
+      text: `Code: ${u.verCode}`,
     });
     return { message: 'Verification code resent.' };
   }
 
-  // Create PIN after email verification
   async createPin(dto: CreatePinWithAuthDto) {
-    const user = await this.subRepo.findOne({ where: { phone: dto.phone } });
-    if (!user) throw new BadRequestException('User not found');
-    if (legacyHash(dto.password) !== user.spass)
-      throw new UnauthorizedException('Invalid password');
-    if (user.regStatus !== 2)
-      throw new UnauthorizedException('Email must be verified first');
-    if (dto.pin === '1234')
-      throw new BadRequestException('PIN too weak');
+    const u = await this.subRepo.findOne({ where: { phone: dto.phone } });
+    if (!u) throw new BadRequestException('User not found');
+    if (legacyHash(dto.password) !== u.spass) throw new UnauthorizedException('Wrong password');
+    if (u.regStatus < 2) throw new UnauthorizedException('Email not verified');
+    if (!/^\d{4}$/.test(dto.pin)) throw new BadRequestException('PIN must be 4 digits');
 
-    user.newPin = dto.pin;
-    user.regStatus = 1;
-    await this.subRepo.save(user);
+    u.pin = parseInt(dto.pin, 10);
+    u.pinStatus = 1;
+    await this.subRepo.save(u);
     return { message: 'PIN created successfully.' };
   }
 
-  // Login: partial or full based on regStatus
   async login(dto: LoginDto) {
-    const user = await this.subRepo.findOne({ where: { phone: dto.sPhone } });
-    if (!user || legacyHash(dto.sPass) !== user.spass)
-      throw new UnauthorizedException('Invalid credentials');
+    const u = await this.subRepo.findOne({ where: { phone: dto.sPhone } });
+    if (!u || legacyHash(dto.sPass) !== u.spass) throw new UnauthorizedException('Invalid credentials');
+    if (u.regStatus === 0) return { message: 'Please verify your email.' };
+    if (u.regStatus === 2) return { message: 'Email verified. Please set your pin.' };
 
-    if (user.regStatus === 0)
-      return { message: 'Please verify your email.' };
-    if (user.regStatus === 2)
-      return { message: 'Email verified. Please create a PIN.' };
+    const token = this.jwtService.sign({ sub: u.id, phone: u.phone, type: u.type });
+    await this.blacklistPreviousToken(u.id);
+    await redis.set(`userToken:${u.id}`, token, 'EX', 60 * 60 * 24);
 
-    const token = this.jwtService.sign({
-      sub: user.id,
-      phone: user.phone,
-      type: user.type,
-    });
-
-    const { spass, verCode, newPin, ...safeUser } = user;
-    return { message: `Welcome, ${user.fname}`, token, user: safeUser };
+    return { message: `Welcome ${u.fname}`, token, user: this.clean(u) };
   }
 
-  // Verify PIN (must be logged in)
   async verifyPin(dto: VerifyPinDto, userId: number) {
-    const user = await this.subRepo.findOne({ where: { id: userId } });
- if (!user || user.newPin !== String(dto.pin))
-  throw new UnauthorizedException('Invalid PIN');
-
+    const u = await this.subRepo.findOne({ where: { id: userId } });
+    if (!u || u.pin !== dto.pin) throw new UnauthorizedException('Invalid PIN');
     return { message: 'PIN verified.' };
   }
 
-  // Forgot password: send reset code
   async forgotPassword(dto: ForgotPasswordDto) {
-    const user = await this.subRepo.findOne({ where: { email: dto.email } });
-    if (!user) throw new BadRequestException('Email not found');
+    const u = await this.subRepo.findOne({ where: { email: dto.email } });
+    if (!u) throw new BadRequestException('Email not found');
 
-    const code = Math.floor(1000 + Math.random() * 9000);
-    user.verCode = code;
-    await this.subRepo.save(user);
+    u.verCode = Math.floor(1000 + Math.random() * 9000);
+    u.verCodeType = 'password_reset';
+    await this.subRepo.save(u);
     await this.mailer.sendMail({
       to: dto.email,
-      subject: 'Password Reset Code',
-      text: `Your reset code is ${code}`,
+      subject: 'Password reset code',
+      text: `Code: ${u.verCode}`,
     });
-    return { message: 'Password reset code sent.' };
+    return { message: 'Reset code sent.' };
   }
 
-  // Reset password using code
   async resetPassword(dto: ResetPasswordDto) {
-    const user = await this.subRepo.findOne({ where: { email: dto.email } });
-    if (!user) throw new BadRequestException('Email not found');
-    if (user.verCode !== dto.code) throw new UnauthorizedException('Invalid code');
+    const u = await this.subRepo.findOne({ where: { email: dto.email } });
+    if (!u) throw new BadRequestException('Email not found');
+    if (u.verCode !== dto.code || u.verCodeType !== 'password_reset')
+      throw new UnauthorizedException('Invalid code');
 
-    user.spass = legacyHash(dto.newPassword);
-    await this.subRepo.save(user);
-    return { message: 'Password reset successfully.' };
+    u.spass = legacyHash(dto.newPassword);
+    u.verCode = null;
+    u.verCodeType = null;
+    await this.subRepo.save(u);
+    return { message: 'Password updated.' };
   }
 
-  // Forgot PIN (when logged in): verify existing password + code
   async forgotPin(userId: number, dto: ForgotPinDto) {
-    const user = await this.subRepo.findOne({ where: { id: userId } });
-    if (!user) throw new BadRequestException('User not found');
-    if (legacyHash(dto.password) !== user.spass || user.verCode !== dto.code)
-      throw new UnauthorizedException('Invalid credentials');
+    const u = await this.subRepo.findOne({ where: { id: userId } });
+    if (!u || legacyHash(dto.password) !== u.spass) throw new UnauthorizedException('Invalid password');
+    if (u.verCode !== dto.code || u.verCodeType !== 'pin_reset')
+      throw new UnauthorizedException('Invalid code');
 
-    user.newPin = dto.newPin;
-    await this.subRepo.save(user);
-    return { message: 'PIN reset successfully.' };
+    u.pin = parseInt(dto.newPin, 10);
+    u.verCode = null;
+    u.verCodeType = null;
+    await this.subRepo.save(u);
+    return { message: 'PIN reset.' };
   }
 
-  // Reset PIN (when logged in): verify old PIN
   async resetPin(userId: number, dto: ResetPinDto) {
-    const user = await this.subRepo.findOne({ where: { id: userId } });
-    if (!user) throw new BadRequestException('User not found');
-if (user.newPin !== dto.oldPin)
-  throw new UnauthorizedException('Old PIN is incorrect');
+    const u = await this.subRepo.findOne({ where: { id: userId } });
+    if (!u || u.pin !== parseInt(dto.oldPin, 10)) throw new UnauthorizedException('Wrong old PIN');
 
-
-    user.newPin = dto.newPin;
-    await this.subRepo.save(user);
-    return { message: 'PIN changed successfully.' };
+    u.pin = parseInt(dto.newPin, 10);
+    await this.subRepo.save(u);
+    return { message: 'PIN changed.' };
   }
 
-  // Reset password (logged-in): verify old password
   async resetPasswordAuth(userId: number, dto: ResetPasswordAuthDto) {
-    const user = await this.subRepo.findOne({ where: { id: userId } });
-    if (!user) throw new BadRequestException('User not found');
-    if (legacyHash(dto.oldPassword) !== user.spass)
-  throw new UnauthorizedException('Old password is incorrect');
-    user.spass = legacyHash(dto.newPassword);
-    await this.subRepo.save(user);
-    return { message: 'Password updated successfully.' };
+    const u = await this.subRepo.findOne({ where: { id: userId } });
+    if (!u || legacyHash(dto.oldPassword) !== u.spass) throw new UnauthorizedException('Wrong old password');
+
+    u.spass = legacyHash(dto.newPassword);
+    await this.subRepo.save(u);
+    return { message: 'Password changed.' };
+  }
+
+  async logout(userId: number, token: string) {
+    await redis.set(`blacklist:${token}`, 'blacklisted', 'EX', 60 * 60 * 24);
+    await redis.del(`userToken:${userId}`);
+    return { message: 'Logged out successfully.' };
   }
 }
