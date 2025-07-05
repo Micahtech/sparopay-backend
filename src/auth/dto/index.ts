@@ -64,3 +64,4 @@ export class CreatePinWithAuthDto extends CreatePinDto {
   @IsString()
   password: string;
 }
+

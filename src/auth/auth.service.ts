@@ -151,9 +151,8 @@ export class AuthService {
   // Verify PIN (must be logged in)
   async verifyPin(dto: VerifyPinDto, userId: number) {
     const user = await this.subRepo.findOne({ where: { id: userId } });
-   if (!user || user.newPin !== String(dto.pin)) {
+ if (!user || user.newPin !== String(dto.pin))
   throw new UnauthorizedException('Invalid PIN');
-}
 
     return { message: 'PIN verified.' };
   }
@@ -201,8 +200,9 @@ export class AuthService {
   async resetPin(userId: number, dto: ResetPinDto) {
     const user = await this.subRepo.findOne({ where: { id: userId } });
     if (!user) throw new BadRequestException('User not found');
-    if (user.newPin !== dto.oldPin)
-      throw new UnauthorizedException('Old PIN is incorrect');
+if (user.newPin !== dto.oldPin)
+  throw new UnauthorizedException('Old PIN is incorrect');
+
 
     user.newPin = dto.newPin;
     await this.subRepo.save(user);
@@ -214,8 +214,7 @@ export class AuthService {
     const user = await this.subRepo.findOne({ where: { id: userId } });
     if (!user) throw new BadRequestException('User not found');
     if (legacyHash(dto.oldPassword) !== user.spass)
-      throw new UnauthorizedException('Old password is incorrect');
-
+  throw new UnauthorizedException('Old password is incorrect');
     user.spass = legacyHash(dto.newPassword);
     await this.subRepo.save(user);
     return { message: 'Password updated successfully.' };
