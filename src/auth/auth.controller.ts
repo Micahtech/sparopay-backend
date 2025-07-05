@@ -1,29 +1,16 @@
-import {
-  Controller,
-  Post,
-  Body,
-  UseGuards,
-  Req,
-} from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
-  RegisterDto,
-  LoginDto,
-  VerifyEmailDto,
-  ResendVerificationDto,
-  VerifyPinDto,
-  CreatePinWithAuthDto,
-  ForgotPasswordDto,
-  ResetPasswordDto,
-  ForgotPinDto,
-  ResetPinDto,
-  ResetPasswordAuthDto,
+  RegisterDto, LoginDto, VerifyEmailDto, ResendVerificationDto,
+  VerifyPinDto, CreatePinWithAuthDto, ForgotPasswordDto,
+  ResetPasswordDto, ForgotPinDto, ResetPinDto, ResetPasswordAuthDto,
 } from './dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private auth: AuthService) {}
+  constructor(private readonly auth: AuthService) {}
 
   @Post('register')
   register(@Body() dto: RegisterDto) {
@@ -46,25 +33,21 @@ export class AuthController {
   }
 
   @Post('login')
-login(@Body() dto: LoginDto, @Req() req) {
-  const ip =
-    req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
-  const ua = req.headers['user-agent'] || 'unknown';
-  return this.auth.login(dto, ip, ua);
-}
-
-
-  @UseGuards(JwtAuthGuard)
-  @Post('logout')
-  logout(@Req() req) {
-    const token = req.headers.authorization.split(' ')[1];
-    return this.auth.logout(req.user.sub, token);
+  login(@Body() dto: LoginDto, @Req() req: Request) {
+    return this.auth.login(dto, req);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('verify-pin')
   verifyPin(@Body() dto: VerifyPinDto, @Req() req) {
     return this.auth.verifyPin(dto, req.user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('logout')
+  logout(@Req() req) {
+    const token = req.headers.authorization?.split(' ')[1];
+    return this.auth.logout(req.user.sub, token);
   }
 
   @Post('forgot-password')
@@ -91,10 +74,7 @@ login(@Body() dto: LoginDto, @Req() req) {
 
   @UseGuards(JwtAuthGuard)
   @Post('reset-password-auth')
-  resetPasswordAuth(
-    @Body() dto: ResetPasswordAuthDto,
-    @Req() req,
-  ) {
+  resetPasswordAuth(@Body() dto: ResetPasswordAuthDto, @Req() req) {
     return this.auth.resetPasswordAuth(req.user.sub, dto);
   }
 }

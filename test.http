@@ -1,0 +1,7 @@
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "sPhone": "08123456789",
+  "sPass": "yourPassword"
+}
