@@ -108,18 +108,21 @@ export class AuthService {
 
     return { message: 'Verification code resent.' };
   }
-async createPin(dto: CreatePinWithAuthDto) {
-    const u = await this.subRepo.findOne({ where: { phone: dto.phone } });
-    if (!u) throw new BadRequestException('User not found');
-    if (legacyHash(dto.password) !== u.spass) throw new UnauthorizedException('Wrong password');
-    if (u.regStatus < 2) throw new UnauthorizedException('Email not verified');
-    if (!/^\d{4}$/.test(dto.pin)) throw new BadRequestException('PIN must be 4 digits');
+  async createPin(dto: CreatePinWithAuthDto) {
+  const u = await this.subRepo.findOne({ where: { phone: dto.phone } });
+  if (!u) throw new BadRequestException('User not found');
+  if (legacyHash(dto.password) !== u.spass) throw new UnauthorizedException('Wrong password');
+  if (u.regStatus < 2) throw new UnauthorizedException('Email not verified');
+  if (!/^\d{4}$/.test(dto.pin)) throw new BadRequestException('PIN must be 4 digits');
 
-    u.pin = parseInt(dto.pin, 10);
-    u.pinStatus = 1;
-    await this.subRepo.save(u);
-    return { message: 'PIN created successfully.' };
-  }
+  u.pin = parseInt(dto.pin, 10);
+  u.pinStatus = 1;
+  u.regStatus = 1; // ✅ Ensure user can now log in
+  await this.subRepo.save(u);
+
+  return { message: 'PIN created successfully.' };
+}
+
 
   async login(dto: LoginDto, req: Request) {
     const user = await this.subRepo.findOne({ where: { phone: dto.sPhone } });
@@ -150,12 +153,12 @@ const ua = parser.getResult();
 
     return { message: `Welcome, ${user.fname}`, token, user: this.clean(user) };
   }
-
   async verifyPin(dto: VerifyPinDto, userId: number) {
-    const user = await this.subRepo.findOne({ where: { id: userId } });
-    if (!user || user.pin !== dto.pin) throw new UnauthorizedException('Invalid PIN');
-    return { message: 'PIN verified.' };
-  }
+  const user = await this.subRepo.findOne({ where: { id: userId } });
+  const pin = parseInt(dto.pin.toString(), 10); // Normalize input
+  if (!user || user.pin !== pin) throw new UnauthorizedException('Invalid PIN');
+  return { message: 'PIN verified.' };
+}
 
   async forgotPassword(dto: ForgotPasswordDto) {
     const user = await this.subRepo.findOne({ where: { email: dto.email } });
