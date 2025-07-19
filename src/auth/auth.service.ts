@@ -63,6 +63,7 @@ export class AuthService {
     const user = this.subRepo.create({
       ...dto,
       spass: legacyHash(dto.password),
+        type: 1, // 👈 Explicitly set to normal user
       verCode: Math.floor(1000 + Math.random() * 9000),
       verCodeType: 'email_verification',
       regStatus: 0,
@@ -151,7 +152,8 @@ const ua = parser.getResult();
       text: `New login to your account\nIP: ${ip}\nLocation: ${geo?.city || 'Unknown'}, ${geo?.country || 'N/A'}\nDevice: ${ua.device?.model || 'N/A'} (${ua.os.name} ${ua.os.version})\nTime: ${new Date().toLocaleString()}`
     });
 
-    return { message: `Welcome, ${user.fname}`, token, user: this.clean(user) };
+    return { message: `Welcome, ${user.fname}`, token, user: this.clean(user),     stype: user.type, // ✅ send this clearly to frontend
+ };
   }
   async verifyPin(dto: VerifyPinDto, userId: number) {
   const user = await this.subRepo.findOne({ where: { id: userId } });
