@@ -20,6 +20,7 @@ import Redis from 'ioredis';
 import { Request } from 'express';
 import * as geoip from 'geoip-lite';
 import * as UAParser from 'ua-parser-js';
+import { AuthGateway } from '../gateways/auth.gateway'; // adjust path as needed
 
 
 if (!process.env.REDIS_URL) throw new Error('REDIS_URL is not defined');
@@ -39,6 +40,7 @@ export class AuthService {
     private readonly subRepo: Repository<Subscriber>,
     private readonly jwtService: JwtService,
     private readonly mailer: MailerService,
+      private readonly authGateway: AuthGateway,
   ) {}
 
   private async blacklistPreviousToken(userId: number) {
@@ -144,6 +146,8 @@ export class AuthService {
     const parser = new UAParser.UAParser();
 parser.setUA(req.headers['user-agent'] ?? '');
 const ua = parser.getResult();
+
+this.authGateway.forceLogout(user.id);
 
 
     await this.mailer.sendMail({
