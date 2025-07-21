@@ -1,4 +1,3 @@
-// auth.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PassportModule } from '@nestjs/passport';
@@ -9,7 +8,7 @@ import { Subscriber } from './subscriber.entity';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
-import { AuthGateway } from '../gateways/auth.gateway'; // 👈 Import the gateway
+import { AuthGateway } from '../gateways/auth.gateway';
 
 @Module({
   imports: [
@@ -33,6 +32,7 @@ import { AuthGateway } from '../gateways/auth.gateway'; // 👈 Import the gatew
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, AuthGateway], // 👈 Add AuthGateway here
+  providers: [AuthService, JwtStrategy, AuthGateway],
+  exports: [AuthService], // 👈 in case other modules need AuthService
 })
 export class AuthModule {}

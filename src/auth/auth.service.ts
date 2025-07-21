@@ -36,12 +36,13 @@ function legacyHash(password: string): string {
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(Subscriber)
-    private readonly subRepo: Repository<Subscriber>,
-    private readonly jwtService: JwtService,
-    private readonly mailer: MailerService,
-      private readonly authGateway: AuthGateway,
-  ) {}
+  @InjectRepository(Subscriber)
+  private readonly subRepo: Repository<Subscriber>,
+  private readonly jwtService: JwtService,
+  private readonly mailer: MailerService,
+  private readonly authGateway: AuthGateway, // ✅ NO forwardRef needed
+) {}
+
 
   private async blacklistPreviousToken(userId: number) {
     const key = `userToken:${userId}`;
