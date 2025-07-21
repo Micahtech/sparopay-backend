@@ -1,3 +1,4 @@
+// auth.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PassportModule } from '@nestjs/passport';
@@ -8,6 +9,7 @@ import { Subscriber } from './subscriber.entity';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
+import { AuthGateway } from '../gateways/auth.gateway'; // 👈 Import the gateway
 
 @Module({
   imports: [
@@ -21,13 +23,16 @@ import { JwtStrategy } from './jwt.strategy';
       transport: {
         host: process.env.SMTP_HOST!,
         port: +process.env.SMTP_PORT!,
-         secure: true, // set true if using port 465
-        auth: { user: process.env.SMTP_USER!, pass: process.env.SMTP_PASS! },
+        secure: true,
+        auth: {
+          user: process.env.SMTP_USER!,
+          pass: process.env.SMTP_PASS!,
+        },
       },
       defaults: { from: `"Sparopay" <${process.env.SMTP_FROM}>` },
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, AuthGateway], // 👈 Add AuthGateway here
 })
 export class AuthModule {}
