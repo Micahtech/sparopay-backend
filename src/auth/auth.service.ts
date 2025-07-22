@@ -13,7 +13,7 @@ import { MailerService } from '@nestjs-modules/mailer';
 import {
   RegisterDto, LoginDto, VerifyEmailDto, ResendVerificationDto,
   VerifyPinDto, CreatePinWithAuthDto, ForgotPasswordDto, ResetPasswordDto,
-  ForgotPinDto, ResetPinDto, ResetPasswordAuthDto,
+  ForgotPinDto, ResetPinDto, ResetPasswordAuthDto, ChangeEmailDto,
 } from './dto';
 import { createHash, randomBytes } from 'crypto';
 import Redis from 'ioredis';
@@ -127,6 +127,31 @@ export class AuthService {
   return { message: 'PIN created successfully.' };
 }
 
+async changeEmail(userId: number, dto: ChangeEmailDto) {
+  const user = await this.subRepo.findOne({ where: { id: userId } });
+  if (!user) throw new BadRequestException('User not found');
+
+  // Check if new email is already taken by someone else
+  const emailExists = await this.subRepo.findOne({ where: { email: dto.newEmail } });
+  if (emailExists && emailExists.id !== userId) {
+    throw new BadRequestException('Email already in use');
+  }
+
+  user.email = dto.newEmail;
+  user.regStatus = 0; // reset verification status
+  user.verCode = Math.floor(1000 + Math.random() * 9000);
+  user.verCodeType = 'email_verification';
+
+  await this.subRepo.save(user);
+
+  await this.mailer.sendMail({
+    to: user.email,
+    subject: 'Verify your new email',
+    text: `Your verification code is ${user.verCode}`,
+  });
+
+  return { message: 'Email changed. Verification code sent to new email.' };
+}
 
   async login(dto: LoginDto, req: Request) {
     const user = await this.subRepo.findOne({ where: { phone: dto.sPhone } });

@@ -3,7 +3,7 @@ import { AuthService } from './auth.service';
 import {
   RegisterDto, LoginDto, VerifyEmailDto, ResendVerificationDto,
   VerifyPinDto, CreatePinWithAuthDto, ForgotPasswordDto,
-  ResetPasswordDto, ForgotPinDto, ResetPinDto, ResetPasswordAuthDto,
+  ResetPasswordDto, ForgotPinDto, ResetPinDto, ResetPasswordAuthDto, ChangeEmailDto,
 } from './dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { Request } from 'express';
@@ -77,4 +77,9 @@ export class AuthController {
   resetPasswordAuth(@Body() dto: ResetPasswordAuthDto, @Req() req) {
     return this.auth.resetPasswordAuth(req.user.sub, dto);
   }
+  @Post('change-email')
+changeEmail(@Body() dto: ChangeEmailDto) {
+  return this.auth.changeEmail(dto.userId, dto);
+}
+
 }

@@ -1,4 +1,4 @@
-import { IsString, IsEmail, Matches, Length, IsNumber, IsInt, Min, Max, } from 'class-validator';
+import { IsString, IsEmail, Matches, Length, IsNumber, IsInt, Min, Max, IsNotEmpty, } from 'class-validator';
 
 export class CreatePinDto {
   @Matches(/^\d{4}$/, { message: 'PIN must be 4 digits' })
@@ -64,4 +64,12 @@ export class CreatePinWithAuthDto extends CreatePinDto {
   @IsString()
   password: string;
 }
+export class ChangeEmailDto {
+  @IsNumber()
+  @IsNotEmpty()
+  userId: number;
 
+  @IsEmail()
+  @IsNotEmpty()
+  newEmail: string;
+}
