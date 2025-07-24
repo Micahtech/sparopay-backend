@@ -81,20 +81,28 @@ export class AuthService {
 
     return { message: 'Registered. Check your email to verify your account.' };
   }
+async verifyEmail(dto: VerifyEmailDto) {
+  const user = await this.subRepo.findOne({ where: { email: dto.email } });
+  if (!user) throw new BadRequestException('Email not found');
 
-  async verifyEmail(dto: VerifyEmailDto) {
-    const user = await this.subRepo.findOne({ where: { email: dto.email } });
-    if (!user) throw new BadRequestException('Email not found');
-    if (user.regStatus >= 1) return { message: 'Already verified.' };
-    if (user.verCode !== dto.code || user.verCodeType !== 'email_verification')
-      throw new UnauthorizedException('Invalid code');
+  if (user.regStatus >= 1) return { message: 'Already verified.' };
 
-    user.regStatus = 2;
-    user.verCode = null;
-    user.verCodeType = null;
-    await this.subRepo.save(user);
-    return { message: 'Email verified successfully.' };
-  }
+const codeNumber = parseInt(String(dto.code), 10);
+  if (isNaN(codeNumber)) throw new BadRequestException('Code must be a number');
+  if (codeNumber < 1000 || codeNumber > 9999)
+    throw new BadRequestException('Code must be a 4-digit number between 1000 and 9999');
+
+  if (String(user.verCode) !== String(dto.code) || user.verCodeType !== 'email_verification')
+    throw new UnauthorizedException('Invalid code');
+
+  user.regStatus = 2;
+  user.verCode = null;
+  user.verCodeType = null;
+  await this.subRepo.save(user);
+
+  return { message: 'Email verified successfully.' };
+}
+
 
   async resendVerificationCode(dto: ResendVerificationDto) {
     const user = await this.subRepo.findOne({ where: { email: dto.email } });
