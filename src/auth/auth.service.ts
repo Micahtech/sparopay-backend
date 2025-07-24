@@ -152,8 +152,7 @@ async changeEmail(userId: number, dto: ChangeEmailDto) {
 
   return { message: 'Email changed. Verification code sent to new email.' };
 }
-
- async login(dto: LoginDto, req: Request) {
+async login(dto: LoginDto, req: Request) {
   const user = await this.subRepo.findOne({ where: { phone: dto.sPhone } });
 
   if (!user) {
@@ -163,42 +162,50 @@ async changeEmail(userId: number, dto: ChangeEmailDto) {
   if (legacyHash(dto.sPass) !== user.spass) {
     throw new UnauthorizedException('Wrong password');
   }
-   if (user.regStatus === 0) 
-    return { 
-      message: 'Verify your email.', 
-      user: { email: user.email, phone: user.phone, password: user.spass } 
+
+  if (user.regStatus === 0) {
+    return {
+      message: 'Verify your email.',
+      user: { email: user.email, phone: user.phone }
     };
-
-  if (user.regStatus === 2) 
-    return { 
-      message: 'Set your PIN.', 
-      user: { email: user.email, phone: user.phone, password: user.spass } 
-    };
-    // Blacklist old token
-    await this.blacklistPreviousToken(user.id);
-
-    const token = this.jwtService.sign({ sub: user.id, phone: user.phone, type: user.type });
-    await redis.set(`userToken:${user.id}`, token, 'EX', 60 * 60 * 24);
-
-    // Send login alert
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    const geo = geoip.lookup(ip?.toString() || '');
-    const parser = new UAParser.UAParser();
-parser.setUA(req.headers['user-agent'] ?? '');
-const ua = parser.getResult();
-
-this.authGateway.forceLogout(user.id);
-
-
-    await this.mailer.sendMail({
-      to: user.email,
-      subject: 'New Login Detected',
-      text: `New login to your account\nIP: ${ip}\nLocation: ${geo?.city || 'Unknown'}, ${geo?.country || 'N/A'}\nDevice: ${ua.device?.model || 'N/A'} (${ua.os.name} ${ua.os.version})\nTime: ${new Date().toLocaleString()}`
-    });
-
-    return { message: `Welcome, ${user.fname}`, token, user: this.clean(user),     stype: user.type, // ✅ send this clearly to frontend
- };
   }
+
+  if (user.regStatus === 2) {
+    return {
+      message: 'Set your PIN.',
+      user: { email: user.email, phone: user.phone }
+    };
+  }
+
+  // Only for regStatus === 1 (fully ready to login)
+  await this.blacklistPreviousToken(user.id);
+
+  const token = this.jwtService.sign({ sub: user.id, phone: user.phone, type: user.type });
+  await redis.set(`userToken:${user.id}`, token, 'EX', 60 * 60 * 24);
+
+  // Send login alert
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const geo = geoip.lookup(ip?.toString() || '');
+  const parser = new UAParser.UAParser();
+  parser.setUA(req.headers['user-agent'] ?? '');
+  const ua = parser.getResult();
+
+  this.authGateway.forceLogout(user.id);
+
+  await this.mailer.sendMail({
+    to: user.email,
+    subject: 'New Login Detected',
+    text: `New login to your account\nIP: ${ip}\nLocation: ${geo?.city || 'Unknown'}, ${geo?.country || 'N/A'}\nDevice: ${ua.device?.model || 'N/A'} (${ua.os.name} ${ua.os.version})\nTime: ${new Date().toLocaleString()}`
+  });
+
+  return {
+    message: `Welcome, ${user.fname}`,
+    token,
+    user: this.clean(user),
+    stype: user.type,
+  };
+}
+
   async verifyPin(dto: VerifyPinDto, userId: number) {
   const user = await this.subRepo.findOne({ where: { id: userId } });
   const pin = parseInt(dto.pin.toString(), 10); // Normalize input
