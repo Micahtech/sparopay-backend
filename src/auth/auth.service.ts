@@ -153,10 +153,16 @@ async changeEmail(userId: number, dto: ChangeEmailDto) {
   return { message: 'Email changed. Verification code sent to new email.' };
 }
 
-  async login(dto: LoginDto, req: Request) {
-    const user = await this.subRepo.findOne({ where: { phone: dto.sPhone } });
-    if (!user || legacyHash(dto.sPass) !== user.spass)
-      throw new UnauthorizedException('Invalid credentials');
+ async login(dto: LoginDto, req: Request) {
+  const user = await this.subRepo.findOne({ where: { phone: dto.sPhone } });
+
+  if (!user) {
+    throw new UnauthorizedException('Wrong phone number');
+  }
+
+  if (legacyHash(dto.sPass) !== user.spass) {
+    throw new UnauthorizedException('Wrong password');
+  }
     if (user.regStatus === 0) return { message: 'Verify your email.' };
     if (user.regStatus === 2) return { message: 'Set your PIN.' };
 
