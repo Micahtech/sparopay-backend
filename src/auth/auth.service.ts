@@ -163,9 +163,17 @@ async changeEmail(userId: number, dto: ChangeEmailDto) {
   if (legacyHash(dto.sPass) !== user.spass) {
     throw new UnauthorizedException('Wrong password');
   }
-    if (user.regStatus === 0) return { message: 'Verify your email.' };
-    if (user.regStatus === 2) return { message: 'Set your PIN.' };
+   if (user.regStatus === 0) 
+    return { 
+      message: 'Verify your email.', 
+      user: { email: user.email, phone: user.phone, password: user.spass } 
+    };
 
+  if (user.regStatus === 2) 
+    return { 
+      message: 'Set your PIN.', 
+      user: { email: user.email, phone: user.phone, password: user.spass } 
+    };
     // Blacklist old token
     await this.blacklistPreviousToken(user.id);
 
