@@ -169,14 +169,13 @@ async login(dto: LoginDto, req: Request) {
 
   if (legacyHash(dto.sPass) !== user.spass) {
     throw new UnauthorizedException('Wrong password');
-  }
+  }if (user.regStatus === 0) {
+  return {
+    message: 'Verify your email.',
+    user: { id: user.id, email: user.email, phone: user.phone } // <-- add id
+  };
+}
 
-  if (user.regStatus === 0) {
-    return {
-      message: 'Verify your email.',
-      user: { email: user.email, phone: user.phone }
-    };
-  }
 
   if (user.regStatus === 2) {
     return {
