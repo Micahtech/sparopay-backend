@@ -92,9 +92,9 @@ const codeNumber = parseInt(String(dto.code), 10);
   if (codeNumber < 1000 || codeNumber > 9999)
     throw new BadRequestException('Code must be a 4-digit number between 1000 and 9999');
 
-  if (String(user.verCode) !== String(dto.code) || user.verCodeType !== 'email_verification')
-    throw new UnauthorizedException('Invalid code');
-
+ if (String(user.verCode) !== String(dto.code) || user.verCodeType !== 'email_verification') {
+  throw new BadRequestException('Invalid code'); 
+}
   user.regStatus = 2;
   user.verCode = null;
   user.verCodeType = null;
