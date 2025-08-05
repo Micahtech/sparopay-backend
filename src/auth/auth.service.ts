@@ -21,6 +21,7 @@ import { Request } from 'express';
 import * as geoip from 'geoip-lite';
 import * as UAParser from 'ua-parser-js';
 import { AuthGateway } from '../gateways/auth.gateway'; // adjust path as needed
+import * as bcrypt from 'bcryptjs';
 
 
 if (!process.env.REDIS_URL) throw new Error('REDIS_URL is not defined');
@@ -119,21 +120,38 @@ const codeNumber = parseInt(String(dto.code), 10);
     });
 
     return { message: 'Verification code resent.' };
-  }
-  async createPin(dto: CreatePinWithAuthDto) {
-  const u = await this.subRepo.findOne({ where: { phone: dto.phone } });
-  if (!u) throw new BadRequestException('User not found');
-  if (legacyHash(dto.password) !== u.spass) throw new UnauthorizedException('Wrong password');
-  if (u.regStatus < 2) throw new UnauthorizedException('Email not verified');
-  if (!/^\d{4}$/.test(dto.pin)) throw new BadRequestException('PIN must be 4 digits');
+  }async createPin(dto: CreatePinWithAuthDto) {
+  const user = await this.subRepo.findOne({ where: { phone: dto.phone } });
+  if (!user) throw new BadRequestException('User not found');
 
-  u.pin = parseInt(dto.pin, 10);
-  u.pinStatus = 1;
-  u.regStatus = 1; // ✅ Ensure user can now log in
-  await this.subRepo.save(u);
+  const isPasswordValid = await bcrypt.compare(dto.password, user.spass);
+  if (!isPasswordValid) throw new UnauthorizedException('Wrong password');
+
+  if (user.regStatus < 2) throw new UnauthorizedException('Email not verified');
+
+  if (!/^\d{4}$/.test(dto.pin)) {
+    throw new BadRequestException('PIN must be exactly 4 digits');
+  }
+
+  const weakPins = ['0000', '1234', '1111', '2222', '1212', '2580', '6969'];
+  if (weakPins.includes(dto.pin)) {
+    throw new BadRequestException('Choose a stronger PIN');
+  }
+
+  const hashedPin = await bcrypt.hash(dto.pin, 10);
+  user.pin = hashedPin;
+  user.pinStatus = 1;
+
+  // Set regStatus to 1 only if it’s still 2 (awaiting PIN setup)
+  if (user.regStatus === 2) {
+    user.regStatus = 1;
+  }
+
+  await this.subRepo.save(user);
 
   return { message: 'PIN created successfully.' };
 }
+
 
 async changeEmail(userId: number, dto: ChangeEmailDto) {
   const user = await this.subRepo.findOne({ where: { id: userId } });
@@ -212,13 +230,17 @@ async login(dto: LoginDto, req: Request) {
     stype: user.type,
   };
 }
-
-  async verifyPin(dto: VerifyPinDto, userId: number) {
+async verifyPin(dto: VerifyPinDto, userId: number) {
   const user = await this.subRepo.findOne({ where: { id: userId } });
-  const pin = parseInt(dto.pin.toString(), 10); // Normalize input
-  if (!user || user.pin !== pin) throw new UnauthorizedException('Invalid PIN');
+  if (!user || !user.pin) throw new UnauthorizedException('PIN not set');
+
+  const isValid = await bcrypt.compare(String(dto.pin), String(user.pin));
+  if (!isValid) throw new UnauthorizedException('Invalid PIN');
+
   return { message: 'PIN verified.' };
 }
+
+
 
   async forgotPassword(dto: ForgotPasswordDto) {
     const user = await this.subRepo.findOne({ where: { email: dto.email } });
@@ -248,30 +270,35 @@ async login(dto: LoginDto, req: Request) {
     await this.subRepo.save(user);
     return { message: 'Password updated.' };
   }
+async forgotPin(userId: number, dto: ForgotPinDto) {
+  const user = await this.subRepo.findOne({ where: { id: userId } });
+  if (!user || !(await bcrypt.compare(dto.password, user.spass)))
+    throw new UnauthorizedException('Invalid password');
+  if (user.verCode !== dto.code || user.verCodeType !== 'pin_reset')
+    throw new UnauthorizedException('Invalid code');
 
-  async forgotPin(userId: number, dto: ForgotPinDto) {
-    const user = await this.subRepo.findOne({ where: { id: userId } });
-    if (!user || legacyHash(dto.password) !== user.spass)
-      throw new UnauthorizedException('Invalid password');
-    if (user.verCode !== dto.code || user.verCodeType !== 'pin_reset')
-      throw new UnauthorizedException('Invalid code');
+  const hashedPin = await bcrypt.hash(dto.newPin, 10);
+  user.pin = hashedPin;
+  user.verCode = null;
+  user.verCodeType = null;
 
-    user.pin = parseInt(dto.newPin, 10);
-    user.verCode = null;
-    user.verCodeType = null;
-    await this.subRepo.save(user);
-    return { message: 'PIN reset.' };
-  }
+  await this.subRepo.save(user);
+  return { message: 'PIN reset.' };
+}
 
-  async resetPin(userId: number, dto: ResetPinDto) {
-    const user = await this.subRepo.findOne({ where: { id: userId } });
-    if (!user || user.pin !== parseInt(dto.oldPin, 10))
-      throw new UnauthorizedException('Wrong old PIN');
+async resetPin(userId: number, dto: ResetPinDto) {
+  const user = await this.subRepo.findOne({ where: { id: userId } });
+  if (!user || !user.pin) throw new UnauthorizedException('PIN not set');
 
-    user.pin = parseInt(dto.newPin, 10);
-    await this.subRepo.save(user);
-    return { message: 'PIN changed.' };
-  }
+  const isOldPinValid = await bcrypt.compare(dto.oldPin, user.pin);
+  if (!isOldPinValid) throw new UnauthorizedException('Wrong old PIN');
+
+  const newHashedPin = await bcrypt.hash(dto.newPin, 10);
+  user.pin = newHashedPin;
+  await this.subRepo.save(user);
+
+  return { message: 'PIN changed.' };
+}
 
   async resetPasswordAuth(userId: number, dto: ResetPasswordAuthDto) {
     const user = await this.subRepo.findOne({ where: { id: userId } });
