@@ -120,11 +120,13 @@ const codeNumber = parseInt(String(dto.code), 10);
     });
 
     return { message: 'Verification code resent.' };
-  }async createPin(dto: CreatePinWithAuthDto) {
+  }
+  
+  async createPin(dto: CreatePinWithAuthDto) {
   const user = await this.subRepo.findOne({ where: { phone: dto.phone } });
   if (!user) throw new BadRequestException('User not found');
 
-  const isPasswordValid = await bcrypt.compare(dto.password, user.spass);
+  const isPasswordValid = legacyHash(dto.password) === user.spass; // ✅ Corrected
   if (!isPasswordValid) throw new UnauthorizedException('Wrong password');
 
   if (user.regStatus < 2) throw new UnauthorizedException('Email not verified');
@@ -142,7 +144,6 @@ const codeNumber = parseInt(String(dto.code), 10);
   user.pin = hashedPin;
   user.pinStatus = 1;
 
-  // Set regStatus to 1 only if it’s still 2 (awaiting PIN setup)
   if (user.regStatus === 2) {
     user.regStatus = 1;
   }
