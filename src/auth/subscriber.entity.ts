@@ -5,8 +5,9 @@ export class Subscriber {
   @PrimaryGeneratedColumn({ name: 'sid' })
   id: number;
 
-  @Column({ name: 'sapikey' })
-  apiKey: string;
+  @Column({ name: 'sapikey', nullable: true })
+apiKey?: string;
+
 
   @Column({ name: 'sfname' })
   fname: string;
