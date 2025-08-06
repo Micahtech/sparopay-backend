@@ -71,8 +71,8 @@ export class AuthService {
       verCode: Math.floor(1000 + Math.random() * 9000),
       verCodeType: 'email_verification',
       regStatus: 0,
-        wallet: 0       // 👈 Add this line
-
+        wallet: 0 ,
+        refWallet: 0,
     });
 
     await this.subRepo.save(user);
