@@ -57,33 +57,72 @@ export class AuthService {
     const { spass, verCode, verCodeType, pin, ...rest } = user;
     return rest;
   }
+async register(dto: RegisterDto) {
+  // Check if user exists by email or phone
+  const exists = await this.subRepo.findOne({
+    where: [{ email: dto.email }, { phone: dto.phone }],
+  });
 
-  async register(dto: RegisterDto) {
-    const exists = await this.subRepo.findOne({
-      where: [{ email: dto.email }, { phone: dto.phone }],
-    });
-    if (exists) throw new BadRequestException('Email or phone already exists');
-
-    const user = this.subRepo.create({
-      ...dto,
-      spass: legacyHash(dto.password),
-        type: 1, // 👈 Explicitly set to normal user
-      verCode: Math.floor(1000 + Math.random() * 9000),
-      verCodeType: 'email_verification',
-      regStatus: 0,
-        wallet: 0 ,
-        refWallet: 0,
-    });
-
-    await this.subRepo.save(user);
-    await this.mailer.sendMail({
-      to: dto.email,
-      subject: 'Verify your email',
-      text: `Your verification code is ${user.verCode}`,
-    });
-
-    return { message: 'Registered. Check your email to verify your account.' };
+  if (exists) {
+    throw new BadRequestException('Email or phone already exists');
   }
+
+  // Create new user entity from dto, mapping dto fields to entity fields
+  const user = this.subRepo.create({
+    apiKey: crypto.randomUUID(), // generate apiKey or your logic here
+    fname: dto.fname,
+    lname: dto.lname,
+    email: dto.email,
+    phone: dto.phone,
+    spass: legacyHash(dto.password), // hashed password
+    state: dto.state,
+    pin: null,               // nullable
+    pinStatus: 0,            // default or your logic
+    type: 1,                 // normal user
+    wallet: 0,
+    refWallet: 0,
+    bankNo: '',
+    rolexBank: '',
+    sterlingBank: '',
+    fidelityBank: '',
+    kudaBank: '',
+    gtBank: '',
+    bankName: '',
+    regStatus: 0,
+    verCode: Math.floor(1000 + Math.random() * 9000),
+    verCodeType: 'email_verification',
+    regDate: new Date(),
+    lastActivity: null,
+    referal: '',             // optional, empty if none
+    bvn: '',
+    nin: '',
+    dob: '',
+    kycStatus: '',
+    accountReference: '',
+    payvesselBank: '',
+    paymentPoint: '',
+    refStatus: '',
+    lastIP: '',
+    lip: '',
+    rip: '',
+    groupId: '',
+    emailSent: false,
+    accountLimit: ''
+  });
+
+  // Save new user in DB
+  await this.subRepo.save(user);
+
+  // Send verification email
+  await this.mailer.sendMail({
+    to: dto.email,
+    subject: 'Verify your email',
+    text: `Your verification code is ${user.verCode}`,
+  });
+
+  return { message: 'Registered. Check your email to verify your account.' };
+}
+
 async verifyEmail(dto: VerifyEmailDto) {
   const user = await this.subRepo.findOne({ where: { email: dto.email } });
   if (!user) throw new BadRequestException('Email not found');

@@ -1,4 +1,4 @@
-import { IsString, IsEmail, Matches, Length, IsNumber, IsInt, Min, Max, IsNotEmpty, } from 'class-validator';
+import { IsString, IsEmail, Matches, Length, IsNumber, IsInt, Min, Max, IsNotEmpty, IsOptional, } from 'class-validator';
 
 export class CreatePinDto {
   @Matches(/^\d{4}$/, { message: 'PIN must be 4 digits' })
@@ -27,7 +27,16 @@ export class RegisterDto {
   @Matches(/^\d{10,15}$/) phone: string;
   @IsString() state: string;
   @Length(6, 100) password: string;
+
+  @IsOptional()
+  @IsString()
+  referal?: string;
+
+  @IsOptional()
+  @IsString()
+  ip?: string;
 }
+
 
 export class ResendVerificationDto {
   @IsEmail() email: string;
