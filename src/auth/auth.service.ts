@@ -12,7 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { MailerService } from '@nestjs-modules/mailer';
 import {
   RegisterDto, LoginDto, VerifyEmailDto, ResendVerificationDto,
-  VerifyPinDto, CreatePinWithAuthDto, ForgotPasswordDto, ResetPasswordDto,
+  VerifyPinDto, CreatePinDto, ForgotPasswordDto, ResetPasswordDto,
   ForgotPinDto, ResetPinDto, ResetPasswordAuthDto, ChangeEmailDto,
 } from './dto';
 import { createHash, randomUUID, } from 'crypto';
@@ -56,7 +56,9 @@ export class AuthService {
   private clean(user: Subscriber) {
     const { spass, verCode, verCodeType, pin, ...rest } = user;
     return rest;
-  } async register(dto: RegisterDto) {
+  } 
+  
+  async register(dto: RegisterDto) {
     const exists = await this.subRepo.findOne({
       where: [{ email: dto.email }, { phone: dto.phone }],
     });
@@ -160,36 +162,44 @@ const codeNumber = parseInt(String(dto.code), 10);
     return { message: 'Verification code resent.' };
   }
   
-  async createPin(dto: CreatePinWithAuthDto) {
+  async createPin(dto: CreatePinDto) {
   const user = await this.subRepo.findOne({ where: { phone: dto.phone } });
-  if (!user) throw new BadRequestException('User not found');
 
-  const isPasswordValid = legacyHash(dto.password) === user.spass; // ✅ Corrected
-  if (!isPasswordValid) throw new UnauthorizedException('Wrong password');
+  if (!user) {
+    throw new BadRequestException('User not found');
+  }
 
-  if (user.regStatus < 2) throw new UnauthorizedException('Email not verified');
+  // Ensure user has verified email (regStatus === 2)
+  if (user.regStatus !== 2) {
+    throw new UnauthorizedException('User has not verified email');
+  }
 
+  // Prevent overwriting an existing PIN
+  if (user.pin && user.pin.trim() !== '') {
+    throw new BadRequestException('PIN already set for this user');
+  }
+
+  // PIN must be exactly 4 digits
   if (!/^\d{4}$/.test(dto.pin)) {
     throw new BadRequestException('PIN must be exactly 4 digits');
   }
 
+  // Disallow weak/common PINs
   const weakPins = ['0000', '1234', '1111', '2222', '1212', '2580', '6969'];
   if (weakPins.includes(dto.pin)) {
     throw new BadRequestException('Choose a stronger PIN');
   }
 
+  // Hash and store the PIN
   const hashedPin = await bcrypt.hash(dto.pin, 10);
   user.pin = hashedPin;
   user.pinStatus = 1;
-
-  if (user.regStatus === 2) {
-    user.regStatus = 1;
-  }
 
   await this.subRepo.save(user);
 
   return { message: 'PIN created successfully.' };
 }
+
 
 
 async changeEmail(userId: number, dto: ChangeEmailDto) {

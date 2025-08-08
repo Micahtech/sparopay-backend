@@ -1,9 +1,16 @@
 import { IsString, IsEmail, Matches, Length, IsNumber, IsInt, Min, Max, IsNotEmpty, IsOptional, } from 'class-validator';
 
+
+
 export class CreatePinDto {
+  @IsString()
+  @Matches(/^\+?\d{10,15}$/, { message: 'Phone number must be valid' })
+  phone: string;
+
   @Matches(/^\d{4}$/, { message: 'PIN must be 4 digits' })
   pin: string;
 }
+
 
 export class ForgotPasswordDto {
   @IsEmail() email: string;
@@ -22,6 +29,7 @@ export class LoginDto {
 
 export class RegisterDto {
   @IsString() fname: string;
+  
   @IsString() lname: string;
   @IsEmail() email: string;
   @Matches(/^\d{10,15}$/) phone: string;
@@ -66,13 +74,7 @@ export class VerifyEmailDto {
 
 export class VerifyPinDto { @IsNumber() pin: number; }
 
-export class CreatePinWithAuthDto extends CreatePinDto {
-  @IsString()
-  phone: string;
 
-  @IsString()
-  password: string;
-}
 export class ChangeEmailDto {
   @IsNumber()
   @IsNotEmpty()
