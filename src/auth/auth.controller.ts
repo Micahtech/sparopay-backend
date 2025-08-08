@@ -2,7 +2,7 @@ import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import {
   RegisterDto, LoginDto, VerifyEmailDto, ResendVerificationDto,
-  VerifyPinDto, CreatePinWithAuthDto, ForgotPasswordDto,
+  VerifyPinDto, CreatePinDto, ForgotPasswordDto,
   ResetPasswordDto, ForgotPinDto, ResetPinDto, ResetPasswordAuthDto, ChangeEmailDto,
 } from './dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -28,7 +28,7 @@ export class AuthController {
   }
 
   @Post('create-pin')
-  createPin(@Body() dto: CreatePinWithAuthDto) {
+  createPin(@Body() dto: CreatePinDto) {
     return this.auth.createPin(dto);
   }
 
