@@ -59,68 +59,80 @@ export class AuthService {
   } 
   
   async register(dto: RegisterDto) {
-    const exists = await this.subRepo.findOne({
-      where: [{ email: dto.email }, { phone: dto.phone }],
-    });
+  const exists = await this.subRepo.findOne({
+    where: [{ email: dto.email }, { phone: dto.phone }],
+  });
 
-    if (exists) {
-      throw new BadRequestException('Email or phone already exists');
-    }
-
-    const user = this.subRepo.create({
-      fname: dto.fname,
-      lname: dto.lname,
-      email: dto.email,
-      phone: dto.phone,
-      state: dto.state,
-      spass: legacyHash(dto.password),
-
-      // Optional/Default Fields
-      apiKey: randomUUID(),
-      type: 1,
-      regStatus: 0,
-      wallet: 0,
-      refWallet: 0,
-      verCode: Math.floor(1000 + Math.random() * 9000),
-      verCodeType: 'email_verification',
-      regDate: new Date(),
-
-      // Required by entity but not in DTO, so provide defaults
-      pinStatus: 0,
-      bankNo: '',
-      rolexBank: '',
-      sterlingBank: '',
-      fidelityBank: '',
-      kudaBank: '',
-      gtBank: '',
-      bankName: '',
-      referal: '',
-      bvn: '',
-      nin: '',
-      dob: '',
-      kycStatus: '',
-      accountReference: '',
-      payvesselBank: '',
-      paymentPoint: '',
-      refStatus: '',
-      lastIP: '',
-      lip: '',
-      rip: '',
-      groupId: '',
-      emailSent: false,
-      accountLimit: '',
-    });
-
-    await this.subRepo.save(user);
-
-    await this.mailer.sendMail({
-      to: dto.email,
-      subject: 'Verify your email',
-      text: `Your verification code is ${user.verCode}`,
-    });
-
-    return { message: 'Registered. Check your email to verify your account.' };
+  if (exists) {
+    throw new BadRequestException('Email or phone already exists');
   }
+
+  // ✂️ Normalize and split full name
+  const fullName = dto.fullName.trim().replace(/\s+/g, ' ');
+  const nameParts = fullName.split(' ');
+
+  if (nameParts.length < 2) {
+    throw new BadRequestException('Full name must include at least two names');
+  }
+
+  const fname = nameParts[0];
+  const lname = nameParts.slice(1).join(' '); // combine middle + last names
+
+  const user = this.subRepo.create({
+    fname,
+    lname,
+    fullName,
+    email: dto.email,
+    phone: dto.phone,
+    state: dto.state,
+    spass: legacyHash(dto.password),
+
+    // Optional fields
+    referal: dto.referal ?? '',
+    lastIP: dto.ip ?? '',
+
+    // Defaults
+    apiKey: randomUUID(),
+    type: 1,
+    regStatus: 0,
+    wallet: 0,
+    refWallet: 0,
+    verCode: Math.floor(1000 + Math.random() * 9000),
+    verCodeType: 'email_verification',
+    regDate: new Date(),
+    pinStatus: 0,
+    bankNo: '',
+    rolexBank: '',
+    sterlingBank: '',
+    fidelityBank: '',
+    kudaBank: '',
+    gtBank: '',
+    bankName: '',
+    bvn: '',
+    nin: '',
+    dob: '',
+    kycStatus: '',
+    accountReference: '',
+    payvesselBank: '',
+    paymentPoint: '',
+    refStatus: '',
+    lip: '',
+    rip: '',
+    groupId: '',
+    emailSent: false,
+    accountLimit: '',
+  });
+
+  await this.subRepo.save(user);
+
+  await this.mailer.sendMail({
+    to: dto.email,
+    subject: 'Verify your email',
+    text: `Your verification code is ${user.verCode}`,
+  });
+
+  return { message: 'Registered. Check your email to verify your account.' };
+}
 
 async verifyEmail(dto: VerifyEmailDto) {
   const user = await this.subRepo.findOne({ where: { email: dto.email } });

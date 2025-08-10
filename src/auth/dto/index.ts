@@ -28,9 +28,9 @@ export class LoginDto {
 }
 
 export class RegisterDto {
-  @IsString() fname: string;
-  
-  @IsString() lname: string;
+   @IsString()
+  @Matches(/^\S+\s+\S+/, { message: 'Full name must include at least two names' })
+  fullName: string;
   @IsEmail() email: string;
   @Matches(/^\d{10,15}$/) phone: string;
   @IsString() state: string;

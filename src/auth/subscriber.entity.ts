@@ -9,11 +9,14 @@ export class Subscriber {
 apiKey?: string;
 
 
-  @Column({ name: 'sfname' })
-  fname: string;
+ @Column({ name: 'sfname', nullable: true })
+fname?: string;
 
-  @Column({ name: 'slname' })
-  lname: string;
+@Column({ name: 'slname', nullable: true })
+lname?: string;
+
+@Column({ name: 'sfullname' })
+fullName: string; // <- required now
 
   @Column({ name: 'semail' })
   email: string;
@@ -24,7 +27,7 @@ apiKey?: string;
   @Column({ name: 'spass' })
   spass: string;
 
-  @Column({ name: 'sstate' })
+  @Column({ name: 'sstate', nullable: true })
   state: string;
 
   @Column({ name: 'spin', type: 'varchar', nullable: true })
@@ -78,8 +81,9 @@ verCode: number | null;
   lastActivity: Date;
 
    @Column({ name: 'svercode_type', type: 'varchar', length: 30, nullable: true }) verCodeType: string | null; // NEW
-  @Column({ name: 'sreferal' })
-  referal: string;
+ @Column({ nullable: true })
+referal?: string | null;
+
 
   @Column({ name: 'sbvn' })
   bvn: string;
