@@ -84,11 +84,10 @@ export class AuthService {
     fullName,
     email: dto.email,
     phone: dto.phone,
-    state: dto.state,
     spass: legacyHash(dto.password),
+  referal: dto.referal || null,  // save null if not provided
 
     // Optional fields
-    referal: dto.referal ?? '',
     lastIP: dto.ip ?? '',
 
     // Defaults
