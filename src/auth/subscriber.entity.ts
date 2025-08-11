@@ -81,7 +81,8 @@ verCode: number | null;
   lastActivity: Date;
 
    @Column({ name: 'svercode_type', type: 'varchar', length: 30, nullable: true }) verCodeType: string | null; // NEW
-@Column({ name: 'sreferal', nullable: true })
+
+@Column({ name: 'sreferal', type: 'varchar', nullable: true })
 referal?: string | null;
 
 
