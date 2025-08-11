@@ -156,22 +156,42 @@ const codeNumber = parseInt(String(dto.code), 10);
 }
 
 
-  async resendVerificationCode(dto: ResendVerificationDto) {
-    const user = await this.subRepo.findOne({ where: { email: dto.email } });
-    if (!user) throw new BadRequestException('Email not found');
-    if (user.regStatus >= 1) return { message: 'Already verified.' };
+ async resendVerificationCode(dto: ResendVerificationDto) {
+  const user = await this.subRepo.findOne({ where: { email: dto.email } });
+  if (!user) throw new BadRequestException('Email not found');
+  if (user.regStatus >= 1) return { message: 'Already verified.' };
 
-    user.verCode = Math.floor(1000 + Math.random() * 9000);
-    user.verCodeType = 'email_verification';
-    await this.subRepo.save(user);
-    await this.mailer.sendMail({
-      to: user.email,
-      subject: 'New Verification Code',
-      text: `Your new verification code is ${user.verCode}`,
-    });
+  const now = new Date();
+  const lastSent = user.lastVerCodeSentAt ?? new Date(0);
+  const resendCount = user.verCodeResendCount ?? 0;
 
-    return { message: 'Verification code resent.' };
+  // Determine required wait time
+  const waitTimes = [60, 90, 120, 150]; // in seconds
+  const maxWait = waitTimes[Math.min(resendCount, waitTimes.length - 1)];
+  const timeDiff = (now.getTime() - lastSent.getTime()) / 1000; // in seconds
+
+  if (timeDiff < maxWait) {
+    const remaining = Math.ceil(maxWait - timeDiff);
+    throw new BadRequestException(`Please wait ${remaining}s before resending code`);
   }
+
+  // Update user with new verification code and timestamp
+  user.verCode = Math.floor(1000 + Math.random() * 9000);
+  user.verCodeType = 'email_verification';
+  user.lastVerCodeSentAt = now;
+  user.verCodeResendCount = resendCount + 1;
+
+  await this.subRepo.save(user);
+
+  await this.mailer.sendMail({
+    to: user.email,
+    subject: 'New Verification Code',
+    text: `Your new verification code is ${user.verCode}`,
+  });
+
+  return { message: 'Verification code resent.' };
+}
+
   
   async createPin(dto: CreatePinDto) {
   const user = await this.subRepo.findOne({ where: { phone: dto.phone } });
