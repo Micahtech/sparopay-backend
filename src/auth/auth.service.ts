@@ -120,6 +120,7 @@ export class AuthService {
     groupId: '',
     emailSent: false,
     accountLimit: '',
+    state: '',
   });
 
   await this.subRepo.save(user);
