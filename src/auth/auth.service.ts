@@ -140,7 +140,7 @@ async verifyEmail(dto: VerifyEmailDto) {
   const user = await this.subRepo.findOne({ where: { email: dto.email } });
   if (!user) throw new BadRequestException('Email not found');
 
-  if (user.regStatus >= 1) return { message: 'Already verified.' };
+  if (user.regStatus === 1) return { message: 'Already verified.' };
 
 const codeNumber = parseInt(String(dto.code), 10);
   if (isNaN(codeNumber)) throw new BadRequestException('Code must be a number');
@@ -270,7 +270,7 @@ async login(dto: LoginDto, req: Request) {
 
   if (legacyHash(dto.sPass) !== user.spass) {
     throw new UnauthorizedException('Wrong password');
-  }if (user.regStatus === 0) {
+  }if (user.regStatus === 0 || user.regStatus === 3) {
   return {
     message: 'Verify your email.',
     user: { id: user.id, email: user.email, phone: user.phone } // <-- add id
