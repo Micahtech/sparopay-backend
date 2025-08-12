@@ -158,25 +158,28 @@ const codeNumber = parseInt(String(dto.code), 10);
 
 
  async resendVerificationCode(dto: ResendVerificationDto) {
-  const user = await this.subRepo.findOne({ where: { email: dto.email } });
+  const user = await this.subRepo.findOne({
+    where: { email: dto.email },
+  }) as Subscriber; // <-- explicitly cast to Subscriber
+
   if (!user) throw new BadRequestException('Email not found');
   if (user.regStatus >= 1) return { message: 'Already verified.' };
 
   const now = new Date();
+
+  // These were causing TS errors; now they're recognized
   const lastSent = user.lastVerCodeSentAt ?? new Date(0);
   const resendCount = user.verCodeResendCount ?? 0;
 
-  // Determine required wait time
   const waitTimes = [60, 90, 120, 150]; // in seconds
   const maxWait = waitTimes[Math.min(resendCount, waitTimes.length - 1)];
-  const timeDiff = (now.getTime() - lastSent.getTime()) / 1000; // in seconds
+  const timeDiff = (now.getTime() - lastSent.getTime()) / 1000;
 
   if (timeDiff < maxWait) {
     const remaining = Math.ceil(maxWait - timeDiff);
     throw new BadRequestException(`Please wait ${remaining}s before resending code`);
   }
 
-  // Update user with new verification code and timestamp
   user.verCode = Math.floor(1000 + Math.random() * 9000);
   user.verCodeType = 'email_verification';
   user.lastVerCodeSentAt = now;
