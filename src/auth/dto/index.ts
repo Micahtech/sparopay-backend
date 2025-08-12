@@ -33,7 +33,6 @@ export class RegisterDto {
   fullName: string;
   @IsEmail() email: string;
   @Matches(/^\d{10,15}$/) phone: string;
-  @IsString() state: string;
   @Length(6, 100) password: string;
 
   @IsOptional()

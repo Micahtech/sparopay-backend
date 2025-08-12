@@ -85,6 +85,11 @@ verCode: number | null;
 @Column({ name: 'sreferal', type: 'varchar', nullable: true })
 referal?: string | null;
 
+@Column({ name: 'last_vercode_sent_at', type: 'timestamp', nullable: true })
+lastVerCodeSentAt?: Date;
+
+@Column({ name: 'vercode_resend_count', type: 'int', default: 0 })
+verCodeResendCount: number;
 
   @Column({ name: 'sbvn' })
   bvn: string;
