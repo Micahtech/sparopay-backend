@@ -67,7 +67,6 @@ export class AuthService {
     throw new BadRequestException('Email or phone already exists');
   }
 
-  // ✂️ Normalize and split full name
   const fullName = dto.fullName.trim().replace(/\s+/g, ' ');
   const nameParts = fullName.split(' ');
 
@@ -76,7 +75,7 @@ export class AuthService {
   }
 
   const fname = nameParts[0];
-  const lname = nameParts.slice(1).join(' '); // combine middle + last names
+  const lname = nameParts.slice(1).join(' ');
 
   const user = this.subRepo.create({
     fname,
@@ -85,12 +84,8 @@ export class AuthService {
     email: dto.email,
     phone: dto.phone,
     spass: legacyHash(dto.password),
-  referal: dto.referal || null,  // save null if not provided
-
-    // Optional fields
+    referal: dto.referal || null,
     lastIP: dto.ip ?? '',
-
-    // Defaults
     apiKey: randomUUID(),
     type: 1,
     regStatus: 0,
@@ -131,7 +126,14 @@ export class AuthService {
     text: `Your verification code is ${user.verCode}`,
   });
 
-  return { message: 'Registered. Check your email to verify your account.' };
+  // ✅ Return user id and email
+  return {
+    message: 'Registered. Check your email to verify your account.',
+    user: {
+      id: user.id,
+      email: user.email,
+    },
+  };
 }
 
 async verifyEmail(dto: VerifyEmailDto) {
