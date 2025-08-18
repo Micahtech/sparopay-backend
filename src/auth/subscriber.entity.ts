@@ -1,5 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
-
+import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
+import { Address } from 'src/user/address.entity';
 @Entity('subscribers')
 export class Subscriber {
   @PrimaryGeneratedColumn({ name: 'sid' })
@@ -132,4 +132,13 @@ verCodeResendCount: number;
 
   @Column({ name: 'saccountlimit' })
   accountLimit: string;
+   @Column({ name: 'scity', nullable: true })
+  city?: string;
+
+  @Column({ name: 'sgender', nullable: true })
+  gender?: string;
+
+  // 🔗 Relations
+  @OneToMany(() => Address, (address) => address.subscriber, { cascade: true })
+  addresses: Address[];
 }
